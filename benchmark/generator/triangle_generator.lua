@@ -18,6 +18,12 @@
 
 local M = {}
 
+local state = 777
+local function lcg_random()
+	state = (state * 1664525 + 1013904223) % 1099511627776
+	return math.floor(state / 16777216) / 65536
+end
+
 local TRIANGLE_TYPES = {
 	{ { x = 1, y = 0 }, { x = 0.5,  y = 0    }, { x = 0,   y = 1   } }, -- Flat bottom
 	{ { x = 1, y = 0 }, { x = 0,    y = 0    }, { x = 0.5, y = 1   } }, -- Flat bottom 
@@ -28,15 +34,24 @@ local TRIANGLE_TYPES = {
 }
 
 --- Generate a specific type of triangle
+---
+--- 1. Right triangle
+--- 2. Isosceles triangle
+--- 3. A triangle with flat bottom and a point to the left
+--- 4. A triangle with flat left with a point downwards
+--- 5. Two points on a diagonal line and a point inside the circle surrounding the two points
+--- 6. Two points on a diagonal line and a point outside the circle surrounding the two points
+--- 
+--- Triangle 5 and 6 does not have a flat bottom or side
 --- 
 --- @param triangle_type  integer the type of triangle
 --- @param rotation_index integer the rotation, 0 1 2 or 3
---- @param width          integer the output width
---- @param height         integer the output height
---- @param x_offset       integer the x coordinate offset
---- @param y_offset       integer the y coordinate offset
+--- @param width          number  the output width
+--- @param height         number  the output height
+--- @param x_offset       number  the x coordinate offset
+--- @param y_offset       number  the y coordinate offset
 ---
---- @return table triangles a single triangle
+--- @return { x: number, y: number }[] triangles a single triangle
 function M.generate_single(triangle_type, rotation_index, width, height, x_offset, y_offset)
 	triangle_type = math.floor(math.max(1, math.min(6, triangle_type)))
 
@@ -45,12 +60,12 @@ function M.generate_single(triangle_type, rotation_index, width, height, x_offse
 	local multiplier = 1 / (2 * max_offset + 1)
 
 	local triangle = TRIANGLE_TYPES[triangle_type]
-	local x1 = math.random() * max_offset
-	local y1 = math.random() * max_offset
-	local x2 = math.random() * max_offset
-	local y2 = math.random() * max_offset
-	local x3 = math.random() * max_offset
-	local y3 = math.random() * max_offset
+	local x1 = lcg_random() * max_offset
+	local y1 = lcg_random() * max_offset
+	local x2 = lcg_random() * max_offset
+	local y2 = lcg_random() * max_offset
+	local x3 = lcg_random() * max_offset
+	local y3 = lcg_random() * max_offset
 
 	if triangle_type == 1 or triangle_type == 2 or triangle_type == 3 then
 		-- Keep bottom flat
@@ -84,25 +99,31 @@ end
 
 --- Generate random triangles that can be used for benchmarking
 ---
---- @param amount   integer  how many batches of 24 triangles to generate
---- @param width    integer  the maximum width of the triangles
---- @param height   integer  the maximum height of the triangles
---- @param x_offset integer? the x coordinate offset of the triangles
---- @param y_offset integer? the y coordinate offset of the triangles
+--- @param amount   integer how many batches of triangles to generate
+--- @param width    number  the maximum width of the triangles
+--- @param height   number  the maximum height of the triangles
+--- @param x_offset number? the x coordinate offset of the triangles
+--- @param y_offset number? the y coordinate offset of the triangles
 ---
---- @return table triangles an array of generated triangles
+--- @return { x: number, y: number }[][] triangles an array of generated triangles
 function M.generate(amount, width, height, x_offset, y_offset)
 	local triangles = {}
 	x_offset = x_offset or 0
 	y_offset = y_offset or 0
 
-	for i=1,amount*24 do
+	for i=1,amount do
 		local t_type     = ((i - 1) % 6) + 1
 		local t_rotation = math.floor((i - 1) / 4) % 4
-		triangles[#triangles + 1] = M.generate_single(t_type, t_rotation, width, height, x_offset, y_offset)
+		triangles[i]     = M.generate_single(t_type, t_rotation, width, height, x_offset, y_offset)
 	end
 
 	return triangles
+end
+
+--- Set the LCG random generator seed
+--- @param seed integer the seed
+function M.setSeed(seed)
+	state = seed
 end
 
 return M
